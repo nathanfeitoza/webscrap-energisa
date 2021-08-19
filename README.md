@@ -29,3 +29,11 @@ ENERGISA_URL=https://www.energisa.com.br ## Host da energisa
 ENERGISA_CONTAS_URL=/agenciavirtual/paginas/ sua-fatura ## URL onde se encontram as faturas
 SOMENTE_CONTA_NAO_PAGA=true ## Esta variável é quem determina o tipo de conta a serem pegas. Caso seja false, ela pegará todas as contas
 ```
+
+### Como rodar
+
+Acesse o diretório do projeto e rode o comando abaixo:
+
+```shell
+node index.js
+```
