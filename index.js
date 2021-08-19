@@ -1,28 +1,65 @@
 require('dotenv').config();
 const puppeteer = require('puppeteer');
-const { writeFileSync, appendFileSync } = require('fs');
+const axios = require('axios');
+const { writeFileSync, appendFileSync, readFileSync } = require('fs');
+
+const date = new Date();
+const fileNameByDate = `${date.getFullYear()}-${(date.getUTCMonth() + 1)}-${date.getDay()}`;
+const downloadPath = './downloads/';
+const outputsPath = './outputs/';
+
+const saveLog = (data, error) => {
+  appendFileSync(
+    `${outputsPath}/error-${fileNameByDate}.log`,
+    `\n[${(new Date).toString()}] - [${(error ? 'ERROR' : 'INFO')}] - ${data}`
+  );
+
+  console.log('\nError to proccess: ', data);
+}
 
 (async () => {
-  const url = process.env.ENERGISA_URL;
-  const urlAccessBills = `${url}${process.env.ENERGISA_CONTAS_URL}`;
-  const downloadPath = './downloads/';
-  const outputsPath = './outputs/';
-  const cookies = [
-    {name: 'PrimeiroAcessoAgenciaVirtual', value: '-742921789.1.0'},
-    {name: 'CodEmpresa', value: process.env.ENERGISA_COD_EMPRESA},
-    {name: 'MeuLocal', value: process.env.ENERGISA_MEU_LOCAL_COOKIE},
-  ];
+  const urlEnergisa = process.env.ENERGISA_URL;
+  const urlAccessBills = `${urlEnergisa}${process.env.ENERGISA_CONTAS_URL}`;
   const cpfUser = process.env.ENERGISA_CPF;
   const passwordUser = process.env.ENERGISA_SENHA;
   const noPaids = process.env.SOMENTE_CONTA_NAO_PAGA === 'true';
+  const states = JSON.parse(readFileSync('./estados.json'));
+  const state = (process.env.ENERGISA_SIGLA_ESTADO || 'SE').toUpperCase();
+  let stateName = states.filter((item) => item.sigla === state);
   
-  const date = new Date();
-  const fileNameByDate = `${date.getFullYear()}-${(date.getUTCMonth() + 1)}-${date.getDay()}`;
+  if (stateName.length === 0) {
+    saveLog('Estado não encontrado', true)
+    return false;
+  }
+
+  stateName = stateName[0].estado;
+  const city = (process.env.ENERGISA_CIDADE || 'ARACAJU').toUpperCase();
   
   try {
+    const getStateData = await axios.get(`${urlEnergisa}/EstadoCidade.local?siglaEstado=${state}`);
+    let codCity = getStateData.data.filter((item) => item.nomeMun.toUpperCase() === city);
+
+    if (codCity.length === 0) {
+      saveLog('Cidade não encontrada', true)
+      return false;
+    }
+    
+    const codEmpresa = codCity[0].codEmpresa;
+    codCity = codCity[0].codMun;
+
+    const cookies = [
+      {name: 'PrimeiroAcessoAgenciaVirtual', value: '-742921789.1.0'},
+      {name: 'CodEmpresa', value: codEmpresa.toString()},
+      {
+        name: 'MeuLocal',
+        value: `MeuEstadoExtenso=${stateName}&MinhaCidade=${city}`
+        + `&MinhaCidadeID=${codCity}&MeuEstadoSigla=${state}&MeuCodEmpresa=${codEmpresa}`
+      },
+    ];
+    
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
-    await page.goto(url);
+    await page.goto(urlEnergisa);
     await page.setCookie(...cookies);
     await page.reload();
     const selectorParent = '.formulario-login';
@@ -93,13 +130,20 @@ const { writeFileSync, appendFileSync } = require('fs');
 
     console.log(`Searchs bill completed. Found ${bills.length} bill(s)`);
 
-    appendFileSync(`${outputsPath}/output-${fileNameByDate}.json`, '\n' + JSON.stringify(bills, null, 2));
+    appendFileSync(
+      `${outputsPath}/output-${fileNameByDate}.json`,
+      `\n${JSON.stringify(bills, null, 2)}`
+    );
 
     await Promise.all(
       bills.map(async (bill, index) => {
         if (bill.billBase64) {
           const base64Value = bill.billBase64.split(';base64,').pop();
-          writeFileSync(`${downloadPath}/bill-${index + 1}-${fileNameByDate}.pdf`, base64Value, {encoding: 'base64'});
+          writeFileSync(
+            `${downloadPath}/bill-${index + 1}-${fileNameByDate}.pdf`,
+            base64Value,
+            { encoding: 'base64' }
+          );
         }
 
         return true;
@@ -110,8 +154,7 @@ const { writeFileSync, appendFileSync } = require('fs');
 
     await browser.close();
   } catch (err) {
-    appendFileSync(`${outputsPath}/error-${fileNameByDate}.log`, `\n[${(new Date).toString()}] - ${err.toString()}`);
-    console.log('Error to proccess', err);
+    saveLog(err.toString(), true);
 
     return false;
   }
