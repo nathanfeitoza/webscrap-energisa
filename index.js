@@ -1,12 +1,13 @@
 require('dotenv').config();
 const puppeteer = require('puppeteer');
 const axios = require('axios');
+const path = require('path');
 const { writeFileSync, appendFileSync, readFileSync } = require('fs');
 
 const date = new Date();
 const fileNameByDate = `${date.getFullYear()}-${(date.getUTCMonth() + 1)}-${date.getDay()}-${date.getTime()}`;
-const downloadPath = './downloads/';
-const outputsPath = './outputs/';
+const downloadPath = path.resolve(__dirname, 'downloads');
+const outputsPath = path.resolve(__dirname, 'outputs');
 
 const saveLog = (data, error) => {
   appendFileSync(
@@ -25,7 +26,7 @@ const getBills = async () => {
   const passwordUser = process.env.ENERGISA_SENHA;
   const noPaids = process.env.SOMENTE_CONTA_NAO_PAGA === 'true';
   const downloadBills = process.env.BAIXAR_CONTAS === 'true';
-  const states = JSON.parse(readFileSync('./estados.json'));
+  const states = JSON.parse(readFileSync(path.resolve(__dirname, 'estados.json')));
   const state = (process.env.ENERGISA_SIGLA_ESTADO || 'SE').toUpperCase();
   let stateName = states.filter((item) => item.sigla === state);
   
