@@ -28,6 +28,7 @@ ENERGISA_SENHA=[Senha usada para acessar sua conta]
 ENERGISA_URL=https://www.energisa.com.br ## Host da energisa
 ENERGISA_CONTAS_URL=/agenciavirtual/paginas/ sua-fatura ## URL onde se encontram as faturas
 SOMENTE_CONTA_NAO_PAGA=true ## Esta variável é quem determina o tipo de conta a serem pegas. Caso seja false, ela pegará todas as contas
+BAIXAR_CONTAS=true ## Esta variável informa se as contas devem ser salvas localmente (PDF) ou não
 ```
 
 ### Como rodar
